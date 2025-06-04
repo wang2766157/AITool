@@ -1,0 +1,127 @@
+﻿@page "/mcpsettings"
+@using CT.AI.Agent.Services
+
+<CTContentPage>
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">MCP配置检查</h3>
+            <div class="">
+                <CTButton AddClass="btn-primary btn-2" @onclick="RunCheck" disabled="@isChecking">
+                    @(isChecking ? "检测中..." : "开始检测环境")
+                </CTButton>
+                @if (errorMessage != null)
+                {
+                    <div class="alert alert-danger mt-3">
+                        <h4>运行时错误</h4>
+                        <pre>@errorMessage</pre>
+                    </div>
+                }
+                @if (results.Any())
+                {
+                    <div class="mt-2">
+                        <h4>检测结果:</h4>
+                        <CTButton AddClass="btn-2" @onclick="CloseTable" disabled="@isChecking">关闭列表</CTButton>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>项目</th>
+                                    <th>状态</th>
+                                    <th>详情</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var result in results)
+                                {
+                                    <tr class="@GetRowClass(result)">
+                                        <td>@result.Item</td>
+                                        <td>@result.Status</td>
+                                        <td>@result.Message</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (showInstallLinks)
+                {
+                    <div class="mt-3 alert alert-warning">
+                        <h5>下载安装组件地址:</h5>
+                        <ul>
+                            <li>
+                                <a href="https://www.python.org/downloads/" target="_blank">下载 Python 3.x</a>
+                            </li>
+                            <li>
+                                <a href="https://go.microsoft.com/fwlink/?linkid=2187220" target="_blank">下载 ODBC Driver 17 for SQL Server</a>
+                            </li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</CTContentPage>
+
+@code {
+    //McpSettings.razor
+    private bool isChecking = false;
+    private bool showInstallLinks = false;
+    private string errorMessage;
+    private List<MCPCheckerService.EnvironmentCheckResult> results = new();
+    private MCPCheckerService CheckerService = new();
+
+    protected override void OnInitialized()
+    {
+        CheckerService.OnResultUpdated += HandleResultUpdate;
+        CheckerService.OnCheckCompleted += HandleCheckComplete;
+    }
+    private string GetRowClass(MCPCheckerService.EnvironmentCheckResult result)
+    {
+        return result.Status switch
+        {
+            string s when s.Contains("✓") => "table-success",
+            string s when s.Contains("⚠") => "table-warning",
+            string s when s.Contains("✘") => "table-danger",
+            _ => ""
+        };
+    }
+    private void HandleResultUpdate(MCPCheckerService.EnvironmentCheckResult result)
+    {
+        results.Add(result);
+        StateHasChanged();
+    }
+    private void HandleCheckComplete()
+    {
+        isChecking = false;
+        showInstallLinks = results.Any(r => !r.IsSuccess);
+        StateHasChanged();
+    }
+    public void Dispose()
+    {
+        CheckerService.OnResultUpdated -= HandleResultUpdate;
+        CheckerService.OnCheckCompleted -= HandleCheckComplete;
+    }
+
+    private async Task RunCheck()
+    {
+        isChecking = true;
+        errorMessage = null;
+        results.Clear();
+        try
+        {
+            await CheckerService.RunEnvironmentCheck();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"严重错误: {ex.Message}\n{ex.StackTrace}";
+        }
+        finally
+        {
+            isChecking = false;
+        }
+    }
+    private async Task CloseTable()
+    {
+        results.Clear();
+        StateHasChanged();
+    }
+}

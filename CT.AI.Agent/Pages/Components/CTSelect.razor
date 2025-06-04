@@ -1,0 +1,51 @@
+﻿@inherits CTBaseComponent
+
+<CTFieldset Title="@Title" Footer="@Footer">
+    <select class="select @AddClass" @attributes="AddAttributes" @bind="CurrentValue">
+        @ChildContent
+        @if (Options?.Any() == true)
+        {
+            @foreach (var item in Options)
+            {
+                <CTSelectOption value="@item.Value">@item.ChildContent</CTSelectOption>
+            }
+        }
+    </select>
+</CTFieldset>
+
+@code {
+    //CTSelect.razor
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Footer { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public EventCallback<string> OnChange { get; set; }
+    [Parameter] public List<CTSelectOption> Options { get; set; } = new();
+    private string CurrentValue
+    {
+        get => Value;
+        set => ValueChanged.InvokeAsync(value);
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (OnChange.HasDelegate)
+            await OnChange.InvokeAsync(Value);
+    }
+    private void HandleChange(ChangeEventArgs e) => CurrentValue = e.Value?.ToString(); // 处理用户选择变更
+
+    // select 组件  For<select> element
+    // select-ghost Style   ghost style
+    // select-neutral Color   neutral color
+    // select-primary Color   primary color
+    // select-secondary Color   secondary color
+    // select-accent Color   accent color
+    // select-info Color   info color
+    // select-success Color   success color
+    // select-warning Color   warning color
+    // select-error Color   error color
+    // select-xs Size    Extra small size
+    // select-sm Size    Small size
+    // select-md Size    Medium size[Default]
+    // select-lg Size    Large size
+    // select-xl Size    Extra large size
+}

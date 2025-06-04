@@ -1,0 +1,197 @@
+﻿@using System.Data
+@using System.Dynamic
+@using System.Collections
+@inherits CTBaseComponent
+
+<table class="table table-auto @AddClass">
+    <thead>
+        <tr>
+            @foreach (var column in columns)
+            {
+                <th @onclick="@(() => HandleColumnHeaderClick(column))" class="@column.HeaderClass">
+                    @column.HeaderTemplate
+                </th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in PagedItems)
+        {
+            <tr @onclick="@(() => HandleRowClick(item))" class="@GetRowClass(item)">
+                @foreach (var column in columns)
+                {
+                    <td class="@column.ColumnClass">
+                        @column.GetFormattedValue(item)
+                    </td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+@* 分页控件 *@
+@if (ShowPagination && TotalItems > 0)
+{
+    <div class="join">
+        <CTButton AddClass="@(pageBtnClass+ PreviousClass)" @onclick="() => ChangePage(CurrentPage - 1)">
+            <CTSvg IconName="chevron_left"></CTSvg>
+        </CTButton>
+        @for (var i = 1; i <= TotalPages; i++)
+        {
+            var p = i;
+            <CTButton AddClass="@(pageBtnClass + PageClass(p))" @onclick="() => ChangePage(p)">@p</CTButton>
+        }
+        <CTButton AddClass="@(pageBtnClass + NextClass)" @onclick="() => ChangePage(CurrentPage + 1)">
+            <CTSvg IconName="chevron_right"></CTSvg>
+        </CTButton>
+    </div>
+}
+
+@code {
+    //CTGridView.razor
+    //隐藏不能使用父类属性
+    private new RenderFragment ChildContent { get; set; }
+    private new Dictionary<string, object> AddAttributes { get; set; } = new();
+    //内部参数
+    private List<CTGridColumn> columns = new();
+    //外部参数
+    [Parameter] public object Items { get; set; }
+    [Parameter] public RenderFragment Columns { get; set; }
+    [Parameter] public EventCallback<dynamic> OnRowClick { get; set; }
+    [Parameter] public EventCallback<CTGridColumn> OnColumnHeaderClick { get; set; }
+    [Parameter] public Func<dynamic, string> RowClass { get; set; }
+    //内部方法
+    private IEnumerable<dynamic> DynamicItems => GetItemsAsDynamic();
+    protected override void OnParametersSet()
+    {
+        GenerateColumns();
+    }
+    //创建列
+    private void GenerateColumns()
+    {
+        columns.Clear();
+        if (Items is DataTable dataTable)
+        {
+            foreach (DataColumn col in dataTable.Columns)
+            {
+                columns.Add(new CTGridColumn
+                    {
+                        FieldName = col.ColumnName,
+                        HeaderTemplate = col.ColumnName,
+                        IsDataTable = true
+                    });
+            }
+        }
+        else if (Items is IEnumerable<dynamic> dynamicEnumerable && dynamicEnumerable.Any())
+        {
+            var firstItem = dynamicEnumerable.First() as IDictionary<string, object>;
+            foreach (var key in firstItem.Keys)
+            {
+                columns.Add(new CTGridColumn
+                    {
+                        FieldName = key,
+                        HeaderTemplate = key
+                    });
+            }
+        }
+        else if (Items != null && Items is IEnumerable)
+        {
+            var firstItem = (Items as IEnumerable).Cast<object>().FirstOrDefault();
+            if (firstItem != null)
+            {
+                var properties = firstItem.GetType().GetProperties();
+                foreach (var prop in properties)
+                {
+                    columns.Add(new CTGridColumn
+                        {
+                            FieldName = prop.Name,
+                            HeaderTemplate = prop.Name
+                        });
+                }
+            }
+        }
+    }
+    //遍历元素
+    private IEnumerable<dynamic> GetItemsAsDynamic()
+    {
+        if (Items is DataTable dataTable)
+        {
+            foreach (DataRow row in dataTable.Rows)
+            {
+                dynamic expando = new ExpandoObject();
+                var dict = expando as IDictionary<string, object>;
+                foreach (DataColumn col in dataTable.Columns)
+                {
+                    dict[col.ColumnName] = row[col];
+                }
+                yield return expando;
+            }
+        }
+        else
+        {
+            foreach (var item in (Items as IEnumerable) ?? Enumerable.Empty<object>())
+            {
+                yield return item;
+            }
+        }
+    }
+    private string GetRowClass(dynamic item) => RowClass?.Invoke(item) ?? "";
+    private async Task HandleRowClick(dynamic item) => await OnRowClick.InvokeAsync(item);
+    private async Task HandleColumnHeaderClick(CTGridColumn column) => await OnColumnHeaderClick.InvokeAsync(column);
+
+
+    #region CTGridColumn
+    public class CTGridColumn
+    {
+        public string FieldName { get; set; }
+        public string HeaderTemplate { get; set; }
+        public bool IsDataTable { get; set; }
+        public string ColumnClass { get; set; }
+        public string HeaderClass { get; set; }
+        public bool IsEditable { get; set; }
+        public string EditorType { get; set; } = "text";
+        public Dictionary<string, object> EditorOptions { get; set; }
+        public object GetFormattedValue(dynamic item)
+        {
+            if (IsDataTable) 
+                return ((IDictionary<string, object>)item)[FieldName];
+            if (item is IDictionary<string, object> dict) 
+                return dict[FieldName];
+            var property = item.GetType().GetProperty(FieldName);
+            return property?.GetValue(item);
+        }
+    }
+    #endregion
+    #region 对外方法
+    //外部方法
+    public void DataBind()
+    {
+        OnParametersSet();
+        StateHasChanged();
+    }
+    #endregion
+    #region 分页
+    //分页相关参数
+    private string pageBtnClass = "btn_sm join-item ";
+    [Parameter] public bool ShowPagination { get; set; } = true;
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalItems { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+    protected string PreviousClass => CurrentPage == 1 ? "btn-disabled" : "";
+    protected string PageClass(int i) => i == CurrentPage ? "btn-active" : "";
+    protected string NextClass => CurrentPage >= TotalPages ? "btn-disabled" : "";
+    public int TotalPages => (int)Math.Ceiling((double)TotalItems / PageSize);
+    //获取每页数据
+    private IEnumerable<dynamic> PagedItems => DynamicItems
+        .Skip((CurrentPage - 1) * PageSize)
+        .Take(PageSize);
+    //跳转页
+    private async Task ChangePage(int newPage)
+    {
+        if (newPage < 1 || newPage > TotalPages) return;
+        CurrentPage = newPage;
+        await OnPageChanged.InvokeAsync(CurrentPage);
+        StateHasChanged();
+    }
+    #endregion
+}

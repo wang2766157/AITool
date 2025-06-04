@@ -1,0 +1,29 @@
+﻿@inherits CTBaseComponent
+
+<div class="avatar @AddClass">
+    <div class="@BorderClass">
+        @if (Url == "")
+        {
+            AddClass += "avatar-placeholder";
+            <span class="@TestClass">@Test</span>
+        }
+        else
+        {
+            <img src="@Url" />
+        }
+    </div>
+</div>
+
+@code {
+    //CTAvatar.razor
+    [Parameter] public string BorderClass { get; set; } = "w-12";
+    [Parameter] public string Url { get; set; } = "";
+    [Parameter] public string Test { get; set; } = "";
+    [Parameter] public string TestClass { get; set; } = "";
+
+    //avatar 组件 Avatar
+    //avatar-group 组件 Container for multiple avatars => 新控件
+    //avatar-online 装饰类 shows a green dot as online indicator
+    //avatar-offline 装饰类 shows a gray dot as offline indicator
+    //avatar-placeholder 装饰类 To show letters as avatar placeholder
+}

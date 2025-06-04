@@ -1,0 +1,48 @@
+﻿@inherits CTBaseComponent
+
+<CTFieldset Title="@Title" Footer="@Footer">
+    <input type="@Type" class="@AddClass" value="@CurrentValue" @oninput="@HandleInput" @attributes="@AddAttributes" />
+</CTFieldset>
+
+@code {
+    //CTInput.razor
+    private string _currentValue;
+    [Parameter] public string Type { get; set; } = "text";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Footer { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    private string CurrentValue
+    {
+        get => _currentValue ?? Value;
+        set
+        {
+            if (_currentValue == value) return;
+            _currentValue = value;
+            ValueChanged.InvokeAsync(value);
+        }
+    }
+    protected override void OnParametersSet()
+    {
+        if (Value != _currentValue)
+            _currentValue = Value;
+    }
+    private void HandleInput(ChangeEventArgs e) => CurrentValue = e.Value?.ToString();
+
+    // input 组件  For<input type = "text" > tag or a wrapper of<input type="text"> tag
+    // input-ghost Style   ghost style
+    // input-neutral Color   neutral color
+    // input-primary Color   primary color
+    // input-secondary Color   secondary color
+    // input-accent Color   accent color
+    // input-info Color   info color
+    // input-success Color   success color
+    // input-warning Color   warning color
+    // input-error Color   error color
+    // input-xs Size    Extra small size
+    // input-sm Size    Small size
+    // input-md Size    Medium size [Default]
+    // input-lg Size    Large size
+    // input-xl Size    Extra large size
+    // Text input 文字输入框
+}

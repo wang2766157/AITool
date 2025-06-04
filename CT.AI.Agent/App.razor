@@ -1,0 +1,12 @@
+﻿<Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="new [] { typeof(MainLayout).Assembly }">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">对不起，这个地址什么都没有。</p>
+            <!-- todo:这里如何跳转404 -->
+        </LayoutView>
+    </NotFound>
+</Router>

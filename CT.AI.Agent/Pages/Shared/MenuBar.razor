@@ -1,0 +1,29 @@
+﻿@inject SystemService SysSvc
+
+<!-- 菜单 -->
+<ul class="menu @AddClass">
+    @foreach (var node in Root)
+    {
+        <CTMenuUnit TItem="MenuModel" Item="node" ChildItemsSelector="node => MenuList.Where(x =>x.IsParent==node.ID)">
+            <NodeContent>
+                <a href="@context.Url"><CTSvg IconName="@context.Icon"></CTSvg>@context.Title</a>
+            </NodeContent>
+        </CTMenuUnit>
+    }
+</ul>
+
+@code {
+    //MenuBar.razor
+    List<MenuModel> MenuList = new List<MenuModel>();
+    List<MenuModel> Root = new List<MenuModel>();
+    [Parameter] public string AddClass { get; set; } = "";
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            MenuList = await SysSvc.GetMenuListAsync();
+            Root = MenuList.Where(n => n.IsParent == "0").ToList();
+            StateHasChanged();//这个方法会标记组件即将被渲染。
+        }
+    }
+}

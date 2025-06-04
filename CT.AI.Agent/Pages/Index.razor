@@ -1,0 +1,465 @@
+﻿@page "/"
+@using CT.AI.Agent.Model.AI;
+@using CT.AI.Agent.Model.AI.Base;
+@using CT.AI.Agent.Pages.Code;
+@using CT.AI.Agent.Pages.Components;
+@using ExceptionExtensionsNs
+@using Microsoft.Extensions.AI
+@using Microsoft.Extensions.DependencyInjection;
+@using Markdig;
+@inject IJSRuntime jsRuntime
+
+<div class="border-base-300 overflow-hidden flex-1">
+    <div class="text-base-content pt-1 transition-colors duration-500 bg-base-200">
+        <div class="px-2 py-2">
+            <div class="text-base-content mx-auto flex flex-row gap-2 h-full">
+                <!-- 对话内容 -->
+                <div class="basis-4/5 flex flex-col gap-2">
+                    <div class="card bg-base-100 w-full shadow-sm">
+                        <div class="card-body overflow-y-auto h-[calc(100vh-184px)]" id="divChatCotent">
+                            @foreach (var ct in ChatTalks)
+                            {
+                                if (ct.ChatMsg != null)
+                                {
+                                    <div class="chat-item">
+                                        @if (ct.IsUser())
+                                        {
+                                            <CTChat PlacementClass="@ChatPlacementEnum.ChatEnd.GetDescription()">
+                                                <Header>@ct.ChatMsg.Role.Value<time class="text-xs opacity-50">@ct.ChatTime.ToString("yyyy-MM-dd HH:mm")</time></Header>
+                                                <ChildContent>@((MarkupString)Markdown.ToHtml(@ct.ChatMsg.Text))</ChildContent>
+                                                <Footer>@(ct.Usage != null ? ct.GetTokenInfo() : "")</Footer>
+                                            </CTChat>
+                                        }
+                                        else if (!ct.IsUser() && !ct.IsWait)
+                                        {
+                                            <CTChat PlacementClass="@ChatPlacementEnum.ChatStart.GetDescription()">
+                                                <Header>@ct.ChatMsg.Role.Value<time class="text-xs opacity-50">@ct.ChatTime.ToString("yyyy-MM-dd HH:mm")</time></Header>
+                                                <ChildContent>
+                                                    @if (!string.IsNullOrEmpty(ct.Thinking))
+                                                    {
+                                                        <div class="text-gray-500">
+                                                            <p>think</p>
+                                                            @((MarkupString)Markdown.ToHtml(@ct.Thinking))
+                                                            <p>/think</p>
+                                                        </div>
+                                                    }
+                                                    @((MarkupString)Markdown.ToHtml(@ct.ChatMsg.Text))
+                                                </ChildContent>
+                                                <Footer>@(ct.Usage != null ? ct.GetTokenInfo() : "")</Footer>
+                                            </CTChat>
+                                        }
+                                        else
+                                        {
+                                            <CTChat PlacementClass="@ChatPlacementEnum.ChatStart.GetDescription()">
+                                                <Header>@ct.ChatMsg.Role.Value<time class="text-xs opacity-50">@ct.ChatTime.ToString("yyyy-MM-dd HH:mm")</time></Header>
+                                                <ChildContent>生成中<span class="animated-dots"></span></ChildContent>
+                                            </CTChat>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="join w-full">
+                        <label class="input join-item w-full">
+                            <input type="text" autocomplete="off" placeholder="发送消息" @bind-value="@chatText" @onkeyup="@HandleEnterKey">
+                            @if (IsTalking)
+                            {
+                                <span class="loading loading-spinner"></span>
+                            }
+                            else
+                            {
+                                <a href="javascript:void(0)" class="neutral" style="display:none;"><CTSvg IconName="paperclip"></CTSvg></a>
+                                <a href="javascript:void(0)" class="neutral" @onclick="SendMessage"><CTSvg IconName="arrow_big_up_line"></CTSvg></a>
+                                <a href="javascript:void(0)" class="neutral" @onclick="ClearMessage"><CTSvg IconName="trash"></CTSvg></a>
+                            }
+                        </label>
+                    </div>
+                </div>
+                <!-- 对话设置 -->
+                <div class="basis-1/5">
+                    <div class="card bg-base-100 w-full shadow-sm">
+                        <div class="flex flex-col gap-2 p-2">
+                            <!-- ExportMD -->
+                            <a href="javascript:void(0)" class="btn btn-icon" aria-label="Button" @onclick="ExportMD"><CTSvg IconName="file_arrow_right"></CTSvg>导出文本</a>
+                            <!-- MCP-mssql -->
+                            <input type="checkbox" class="btn" aria-label="MCP" checked="@isMcp" @onchange="@CheckboxMcpChange" />
+                            <!-- 内部方法 -->
+                            <input type="checkbox" class="btn" aria-label="内部方法" checked="@isFun" style="display:none;" @onchange="@CheckboxFunChange" />
+                            <!-- 测试 -->
+                            <div class="" style="display : none">
+                                <a href="javascript:void(0)" class="btn btn-2 mb-1" @onclick="Test4">测试</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 提示对话框 -->
+<CTModal @ref="tbm"></CTModal>
+
+@code {
+    #region 属性
+    private AIService chat;
+    private List<ChatTalk> ChatTalks = new List<ChatTalk>();
+    private string chatText = "";
+    private CTModal tbm = new();
+    private FileService fs = new FileService();
+    public string TokenText { get; set; } = "";
+    public string ApiServerValue { get; set; } = "";
+    public string ApiModelValue { get; set; } = "";
+    private bool isFun = false;//是否勾选 内部方法
+    private bool isMcp = false;//是否勾选 MCP
+    private bool oneMsgFun = true;//再整个会话内 checkbox 发送的信息只有一次
+    private bool oneMsgMcp = true;//再整个会话内 checkbox 发送的信息只有一次
+    private bool IsTalking = false;
+    #endregion
+    #region 初始化
+    //初始化
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        //首次加载
+        if (firstRender)
+        {
+            await jsRuntime.InvokeVoidAsync("loadscript", "/js/Index.js");//指引调用哪个 js 文件 第一个参数固定
+            await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+            //获取temp本地数据
+            var t = fs.ReadTempData("ApiServerValue").Result;
+            if (t.Tags != null) ApiServerValue = (string)t.Tags;
+            var t1 = fs.ReadTempData("TokenText").Result;
+            if (t1.Tags != null) TokenText = (string)t1.Tags;
+            var t2 = fs.ReadTempData("ApiModelValue").Result;
+            if (t2.Tags != null) ApiModelValue = (string)t2.Tags;
+            if (string.IsNullOrEmpty(TokenText)) await tbm.ShowMsg("请在设置中保存Token", "错误");
+            //构造
+            OpenAIBase oab = new(ApiServerValue, TokenText, ApiModelValue);
+            chat = new(oab);
+            #region 首次使用
+            if (MainForm.NewFlag)
+            {
+                string test = @"
+# 首次登录
+
+需要先去 硅基流动 上注册一个用户
+
+用手机号即可, 可以不要实名, 网站会赠送试用费用
+
+注册后 请在 API 密钥 页面下创建 token 并将值填入到配置页面中 并保存
+
+
+[硅基流动](https://cloud.siliconflow.cn/models)
+";
+                var tmp = Markdown.ToHtml(test);
+                await tbm.ShowMsg(tmp, "提示");
+                MainForm.NewFlag = false;
+            }
+            #endregion
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+    #endregion
+    #region 发送消息
+    private async void SendMessage()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(chatText)) return;
+            IsTalking = true;
+            var msglist = await GetUserTalking(chatText);
+            //请求
+            List<Microsoft.Extensions.AI.AITool> atList = new();
+            if (isFun) atList.AddRange(FunctionService.GetTools());
+            if (isMcp)
+            {
+                try
+                {
+                    var mcplist = await MCPService.GetToolsAsync();
+                    atList.AddRange(mcplist);
+                }
+                catch (Exception ex)
+                {
+                    var innermsg = ex.GetInnerExceptionMessage();
+                    await tbm.ShowMsg($"MCP 加载异常 : {ex.Message + "\r\n" + innermsg}", "消息");
+                }
+            }
+            chat.AiToolList = atList;
+            //流式输出结果
+            ChatTalk newMessage = new();
+            string textContent = "";
+            string think = "";
+            var request = chat.GetStreamingResponseAsync(msglist);
+            await foreach (var item in request)
+            {
+                var thinking = ChatCompletionUpdateExtensions.ThinkingAccessor(item.RawRepresentation);
+                textContent += item.Text;
+                think += thinking != null ? thinking.ToString() : "";
+                if (item.Role.ToString() == "" && textContent == "") continue;
+                newMessage = new ChatTalk().TalkBuilding(item.Role.ToString(), ChatTalks.Count, textContent);
+                newMessage.Thinking = think;
+                newMessage.IsWait = string.IsNullOrEmpty(textContent) && string.IsNullOrEmpty(think);
+                ChatTalks[ChatTalks.Count - 1] = newMessage; // 替换旧对象
+                await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+                StateHasChanged();
+                await jsRuntime.InvokeVoidAsync("HLLoad");
+                if (item.FinishReason != null) IsTalking = false;
+            }
+            // var chatResponse = await request.ToChatResponseAsync();//这里速度太慢
+            // if (newMessage != null) newMessage.Usage = chatResponse.Usage;
+            // await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+            // StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            var innermsg = ex.GetInnerExceptionMessage();
+            await tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常");
+        }
+    }
+    private void HandleEnterKey(KeyboardEventArgs e)
+    {
+        if (IsTalking) return;
+        // 检查按键是否是回车键（键名 "Enter" 或 键值 13）
+        if (e.Key == "Enter" || e.Code == "Enter")
+            SendMessage();
+    }
+    //处理用户输入
+    private async Task<List<Microsoft.Extensions.AI.ChatMessage?>> GetUserTalking(string text)
+    {
+        //添加一个user 语言块
+        var ct = new ChatTalk().TalkBuilding("user", ChatTalks.Count, text);
+        ChatTalks.Add(ct);
+        chatText = "";
+        await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+        var msglist = ChatTalks.DecodeMessageList();
+        //添加一个system 语言块
+        var back = new ChatTalk().TalkBuilding("system", ChatTalks.Count, "");//空的语言块
+        back.IsWait = true;
+        ChatTalks.Add(back);
+        await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+        StateHasChanged();
+        return msglist;
+    }
+    #endregion
+    #region 清空会话
+    private void ClearMessage()
+    {
+        try
+        {
+            oneMsgFun = true;
+            isFun = false;
+            oneMsgMcp = true;
+            isMcp = false;
+            ChatTalks.Clear();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            var innermsg = ex.GetInnerExceptionMessage();
+            tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常");
+        }
+    }
+    #endregion
+    #region checkbox 事件
+    private async void CheckboxFunChange(ChangeEventArgs e)
+    {
+        isFun = bool.Parse(e.Value.ToString());
+        if (oneMsgFun)
+        {
+            oneMsgFun = false;
+            //todo 可提供内部方法的内容
+            var add = new ChatTalk().TalkBuilding("system", ChatTalks.Count, "用户需要调用内部方法");
+            ChatTalks.Add(add);
+            await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+            StateHasChanged();
+        }
+    }
+    private async void CheckboxMcpChange(ChangeEventArgs e)
+    {
+        isMcp = bool.Parse(e.Value.ToString());
+        if (oneMsgMcp)
+        {
+            oneMsgMcp = false;
+            //todo 可提供内部方法的内容
+            var add = new ChatTalk().TalkBuilding("system", ChatTalks.Count, "作为测试MCP服务器功能的助手，请开始您的思考过程。");
+            ChatTalks.Add(add);
+            await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+            StateHasChanged();
+        }
+    }
+    #endregion
+    #region 导出MD文本
+    private async Task ExportMD()
+    {
+        try
+        {
+            if (ChatTalks.Count == 0) return;
+            var res = "";
+            foreach (var ct in ChatTalks)
+            {
+                res += ct.ChatMsg.Role.Value + $" [时间:{ct.ChatTime.ToString("yyyy-MM-dd HH:mm")}]" + Environment.NewLine;
+                if (ct.Thinking != "")
+                    res += "<Think>" + Environment.NewLine + ct.Thinking + Environment.NewLine + "</Think>" + Environment.NewLine;
+                res += ct.ChatMsg.Text + Environment.NewLine;
+            }
+            var saveFileDialog1 = new SaveFileDialog();
+            saveFileDialog1.FileName = ChatTalks.Where(x => x.IsUser()).OrderBy(x => x.ChatTime).First().ChatMsg.Text;
+            saveFileDialog1.Filter = "MD 文件 (*.md)|*.md|文本文件 (*.txt)|*.txt";
+            saveFileDialog1.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            // 打开保存对话框
+            if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                string path = saveFileDialog1.FileName;
+                File.WriteAllText(path, res, System.Text.Encoding.UTF8);
+                await tbm.ShowMsg("文件保存成功！", "提示");
+            }
+        }
+        catch (Exception ex)
+        {
+            var innermsg = ex.GetInnerExceptionMessage();
+            await tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常");
+        }
+    }
+    #endregion
+    //测试方法
+    [Testing]
+    private async void Test3()
+    {
+        OpenAIBase oab = new(ApiServerValue, TokenText, "BAAI/bge-m3");
+        AIServiceEmbeddingGenerator chateg = new(oab);
+        var rr = await chateg.Test();
+        var back = new ChatTalk().TalkBuilding("system", ChatTalks.Count, rr);//添加一个sys 语言块
+        ChatTalks.Add(back);
+        await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+        StateHasChanged();
+    }
+    // [Testing]
+    // private async void Test()
+    // {
+    //     try
+    //     {
+    //         if (string.IsNullOrEmpty(chatText)) return;
+    //         if (tarGroup is null) tarGroup = new ChatTalkGroup();
+    //         //添加一个user 语言块
+    //         var ct = ChatTalk.TalkBuilding("user", tarGroup.ChatTalks.Count, chatText);
+    //         tarGroup.ChatTalks.Add(ct);
+    //         chatText = "";
+    //         await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+    //         var msglist = tarGroup.DecodeMessageList();
+
+    //         //非流式输出结果
+    //         var back = ChatTalk.TalkBuilding("system", tarGroup.ChatTalks.Count, "");//添加一个sys 空的语言块
+    //         back.IsWait = true;
+    //         tarGroup.ChatTalks.Add(back);
+    //         StateHasChanged();
+    //         //
+    //         var cr = await chat.GetChatClientResponseAsync(msglist);
+    //         tarGroup.ChatTalks[tarGroup.ChatTalks.Count - 1] = ChatTalk.TalkBuilding("system", tarGroup.ChatTalks.Count, cr.Text);//添加一个sys 语言块
+    //         await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+    //         StateHasChanged();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         var innermsg = ex.GetInnerExceptionMessage();
+    //         await tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常", CTModal.CTModalStatus.Danger);
+    //     }
+    // }
+    [Testing]
+    private async void Test2()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(chatText)) return;
+            var msglist = GetUserTalking(chatText).Result;
+
+            //流式输出结果
+            string accumulatedContent = "";
+            await foreach (var item in chat.GetStreamingResponseAsync(msglist))
+            {
+                var thinking = ChatCompletionUpdateExtensions.ThinkingAccessor(item.RawRepresentation);
+                accumulatedContent += item.Text;
+                var newMessage = new ChatTalk().TalkBuilding("system", ChatTalks.Count, accumulatedContent);
+                newMessage.Thinking += thinking != null ? thinking.ToString() : "";
+                newMessage.IsWait = string.IsNullOrEmpty(accumulatedContent);
+                ChatTalks[ChatTalks.Count - 1] = newMessage; // 替换旧对象
+                await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+                StateHasChanged();
+                var tmp2 = item.FinishReason;
+            }
+            // //向量数据库
+            // var cr = await chat.GetChatClientResponseAsync(msglist);
+            // ChatTalks[ChatTalks.Count - 1] = new ChatTalk().TalkBuilding("system", ChatTalks.Count, cr.Text);//添加一个sys 语言块
+            // await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+            // StateHasChanged();
+            //
+            // string accumulatedContent = "";
+            // string[] prompts = ["What is AI?", "What is .NET?", "What is AI?"];
+            // var chateg = new OpenAIServiceEmbeddingGenerator(ApiServerValue, TokenText);
+            // await foreach (var item in chateg.GenerateAsync2(prompts))
+            // {
+            //     accumulatedContent += item;
+            //     var newMessage = ChatTalk.TalkBuilding("system", tarGroup.ChatTalks.Count, accumulatedContent);
+            //     newMessage.IsWait = string.IsNullOrEmpty(accumulatedContent);
+            //     tarGroup.ChatTalks[tarGroup.ChatTalks.Count - 1] = newMessage; // 替换旧对象
+            //     await jsRuntime.InvokeVoidAsync("ScrollToBottom", "");
+            //     StateHasChanged();
+            // }
+        }
+        catch (Exception ex)
+        {
+            var innermsg = ex.GetInnerExceptionMessage();
+            await tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常");
+        }
+    }
+    [Testing]
+    private async void Test4()
+    {
+        try
+        {
+            var ic = chat.AiBase.Client.GetChatClient(chat.AiBase.Model);
+            var clientBuiider = new ChatClientBuilder(ic.AsIChatClient()).UseFunctionInvocation().Build();
+            List<Microsoft.Extensions.AI.ChatMessage> messages = new();
+            messages = [new(ChatRole.System, "作为测试MCP服务器功能的助手，请开始您的思考过程。"),];
+            string query = "查询D_SSD表";
+            messages.Add(new(ChatRole.User, query));
+            var tools = await MCPService.GetToolsAsync();
+            var options = new ChatOptions { Tools = [.. tools] };
+
+            var response = await clientBuiider.GetResponseAsync(messages, options);
+            messages.AddMessages(response);
+            var toolUseMessage = response.Messages.Where(m => m.Role == ChatRole.Tool);
+            if (response.Messages[0].Contents.Count > 0)
+            {
+                var functionCall = (FunctionCallContent)response.Messages[0].Contents[0];
+                string arguments = "";
+                if (functionCall.Arguments != null)
+                {
+                    foreach (var arg in functionCall.Arguments)
+                    {
+                        arguments += $"{arg.Key}:{arg.Value};";
+                    }
+                    Console.WriteLine($"调用函数名:{functionCall.Name};参数信息：{arguments}");
+                    foreach (var message in toolUseMessage)
+                    {
+                        var functionResultContent = (FunctionResultContent)message.Contents[0];
+                        Console.WriteLine($"调用工具结果：{functionResultContent.Result}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("调用工具参数缺失");
+                }
+            }
+            else
+            {
+                Console.WriteLine("本次没有调用工具");
+            }
+        }
+        catch (Exception ex)
+        {
+            var innermsg = ex.GetInnerExceptionMessage();
+            await tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常");
+        }
+    }
+
+}

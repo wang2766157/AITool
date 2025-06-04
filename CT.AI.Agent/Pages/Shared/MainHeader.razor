@@ -1,0 +1,34 @@
+﻿
+<div class="navbar w-full py-0">
+    <div class="flex flex-1 items-center md:gap-1 lg:gap-2">
+        <a href=".">
+            <CTAvatar BorderClass="w-12 rounded" Url="/img/Spell_Holy_MagicalSentry.ico"></CTAvatar>
+        </a>
+        <MenuBar AddClass="bg-base-200 menu-horizontal rounded-box" ></MenuBar>
+    </div>
+    <div class="flex xl:gap-1">
+        <label class="swap swap-rotate">
+            <!-- this hidden checkbox controls the state -->
+            <input type="checkbox" class="theme-controller" onclick="@ToggleTheme" />
+            @if (Parent.currentTheme == "light")
+            {
+                <CTSvg IconName="sun"></CTSvg>
+            }
+            else
+            {
+                <CTSvg IconName="moon"></CTSvg>
+            }
+        </label>
+    </div>
+</div>
+
+@code {
+    List<DropDownModel> UserSetList { get; set; } = new List<DropDownModel>();
+    [CascadingParameter(Name = "Theme")] public MainLayout Parent { get; set; }
+    private void ToggleTheme()
+    {
+        Parent.currentTheme = Parent.currentTheme == "light" ? "dark" : "light";
+        Parent.UpdateTheme(Parent.currentTheme);
+        StateHasChanged(); // 触发 UI 更新
+    }
+}

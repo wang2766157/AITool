@@ -1,0 +1,13 @@
+﻿@inherits CTBaseComponent
+
+<fieldset class="fieldset">
+    <legend class="fieldset-legend">@Title</legend>
+    @ChildContent
+    <p class="label">@Footer</p>
+</fieldset>
+
+@code {
+    //CTFieldset.razor
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Footer { get; set; } = "";
+}

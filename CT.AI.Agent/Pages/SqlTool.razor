@@ -1,0 +1,138 @@
+﻿@page "/sqltool"
+@using CT.AI.Agent.Services.CodeFactory
+@using ExceptionExtensionsNs
+@using CodeTool.BaseClass.CodeFactory;
+
+<CTContentPage ShowBackground="false" ShowShadow="false">
+    <!-- 表头 -->
+    <div class="flex items-center gap-2">
+        <div class="join">
+            <CTButton AddClass="btn_sm btn-square" onclick="@BtnConn"><CTSvg IconName="plug"></CTSvg></CTButton>
+            <CTButton AddClass="btn_sm btn-square" onclick="@BtnClear"><CTSvg IconName="plug_x"></CTSvg></CTButton>
+        </div>
+        <CTButton>新建查询</CTButton>
+    </div>
+    <!-- 内容 -->
+    <div class="flex flex-row gap-2 h-full">
+        <div class="basis-1/5 flex flex-col gap-2">
+            <CTInput AddClass="input input-sm w-full" @bind-value="selectedText"></CTInput>
+            <div class="w-full h-[calc(100vh_-_238px)] overflow-x-hidden overflow-y-auto">
+                @if (ServerList.Any())
+                {
+                    <ul class="menu w-full bg-base-200 rounded-box ">
+                        @foreach (var node in ServerList)
+                        {
+                            <CTMenuUnit TItem="DataServer" Item="node">
+                                <NodeContent Context="DataServerCnt">
+                                    <details>
+                                        <summary>@DataServerCnt.Server.DbName</summary>
+                                        <ul>
+                                            <li>
+                                                @if (node.TableList.Any())
+                                                {
+                                                    <details open>
+                                                        <summary>表</summary>
+                                                        <ul class="menu w-full bg-base-200 rounded-box ">
+                                                            @foreach (var tablenode in node.TableList)
+                                                            {
+                                                                <CTMenuUnit TItem="TableModel" Item="tablenode">
+                                                                    <NodeContent Context="TableModelCnt">
+                                                                        <a @onclick="()=>HandleShowTable(tablenode)"><CTSvg IconName="file_minus"></CTSvg>@TableModelCnt.TableName</a>
+                                                                    </NodeContent>
+                                                                </CTMenuUnit>
+                                                            }
+                                                        </ul>
+                                                    </details>
+                                                }
+                                                else
+                                                {
+                                                    <a @onclick="()=>HandleAddTable(node)">表</a>
+                                                }
+                                            </li>
+                                            <li><a>视图</a></li>
+                                            <li><a>存储过程</a></li>
+                                        </ul>
+                                    </details>
+                                </NodeContent>
+                            </CTMenuUnit>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+        <div class="basis-4/5 flex flex-col gap-2">
+            <CTContentPage ShowShadow="false" ShowBackground="false">
+                <div class="w-[calc(100vw_-_405px)] h-[calc(100vh_-_180px)] overflow-auto">
+                    <CTGridView AddClass="table-sm table-pin-rows flex-1 rounded-box border border-base-content/5 bg-base-100" @ref="Girdview">
+                    </CTGridView>
+                </div>
+            </CTContentPage>
+        </div>
+    </div>
+</CTContentPage>
+<!-- 提示对话框 -->
+<CTModal @ref="tbm"></CTModal>
+<ServerSelectModal @ref="ssm" ReBackServerModel="@GetServerModel"></ServerSelectModal>
+
+@code {
+    private CTModal tbm = new();
+    private ServerSelectModal ssm = new();
+    private string selectedText = "";
+    private List<DataServer> ServerList = new();
+    private CTGridView Girdview = new();
+    private async Task BtnConn()
+    {
+        //如果有初始复制
+        ssm.sm.ServerName = "";
+        ssm.sm.UserName = "";
+        ssm.sm.Pwd = "";
+        await ssm.Show();
+    }
+    private void BtnClear()
+    {
+        ServerList.Clear();
+        Girdview.Items = null;
+        Girdview.DataBind();
+        StateHasChanged();
+    }
+    //绑定
+    private void GetServerModel(ServerModel sm)
+    {
+        ServerList.Clear();
+        var db = new DBOper();
+        var slist = db.GetSysDataBases<ServerModel>(sm).ToList();
+        foreach (var s in slist)
+        {
+            var ds = new DataServer { Server = s };
+            ServerList.Add(ds);
+        }
+        StateHasChanged();
+    }
+    //动态添加内容节点
+    //绑定表
+    private void HandleAddTable(DataServer parentNode)
+    {
+        var db = new DBOper();
+        var tlist = db.GetAllTable<TableModel>(parentNode.Server);
+        parentNode.TableList = tlist.ToList();
+        StateHasChanged(); // 手动触发 UI 更新
+    }
+    //显示表格
+    private void HandleShowTable(TableModel tableNode)
+    {
+        var db = new DBOper();
+        var mlist = db.GetTableContent(tableNode);
+        Girdview.Items = mlist;
+        Girdview.TotalItems = mlist.Rows.Count;
+        Girdview.DataBind();
+    }
+
+
+    //内部类 组合模型
+    public class DataServer
+    {
+        public ServerModel Server { get; set; } = new();
+        public List<TableModel> TableList { get; set; } = new();
+    }
+}
+

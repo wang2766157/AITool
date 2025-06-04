@@ -1,0 +1,87 @@
+﻿@page "/settings"
+@using ExceptionExtensionsNs
+
+@inject IJSRuntime jsRuntime
+
+<CTContentPage>
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">模型供应商</h3>
+            <div class="">
+                <CTSelect @bind-value="@ApiServerValue">
+                    <CTSelectOption value="https://api.siliconflow.cn/v1">硅基流动</CTSelectOption>
+                </CTSelect>
+            </div>
+            <h3 class="card-title">API 密钥</h3>
+            <p class="card-subtitle">API密钥需要您去对应的网站申请并填入于此，您访问接口的凭证，具有该账户的完整权限，请您妥善保管。</p>
+            <div class="">
+                <CTInput Type="password" AddClass="input" Title="Token" id="ApiToken" @bind-value="@TokenText"></CTInput>
+            </div>
+            <h3 class="card-title">模型</h3>
+            <div class="">
+                <CTSelect @bind-value="@ApiModelValue">
+                    <CTSelectOption value="deepseek-ai/DeepSeek-R1-0528-Qwen3-8B">deepseek-ai/DeepSeek-R1-0528-Qwen3-8B 免费</CTSelectOption>
+                    <CTSelectOption value="deepseek-ai/DeepSeek-R1">deepseek-ai/DeepSeek-R1 ￥16/ M Tokens</CTSelectOption>
+                    <CTSelectOption value="Qwen/Qwen3-32B">Qwen/Qwen3-32B ￥4/ M Tokens</CTSelectOption>
+                    <CTSelectOption value="Pro/deepseek-ai/DeepSeek-R1">Pro/deepseek-ai/DeepSeek-R1 ￥16/ M Tokens</CTSelectOption>
+                </CTSelect>
+            </div>
+            <div class="">
+                <CTButton AddClass="btn-primary btn-2" @onclick="Save">保存</CTButton>
+            </div>
+        </div>
+    </div>
+</CTContentPage>
+<!-- 提示对话框 -->
+<CTModal @ref="tbm"></CTModal>
+
+@code {
+    #region 属性
+    public string TokenText { get; set; } = "";
+    public string ApiServerValue { get; set; } = "";
+    public string ApiModelValue { get; set; } = "";
+    private CTModal tbm = new();
+    private FileService fs = new();
+    #endregion
+    #region 保存
+    private async void Save()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(TokenText))
+            {
+                await tbm.ShowMsg("请输入有效的Token密钥。", "提示");
+                return;
+            }
+            fs.SaveTempData(new TempModel { PageInfo = "ApiServerValue", Tags = ApiServerValue });
+            fs.SaveTempData(new TempModel { PageInfo = "TokenText", Tags = TokenText });
+            fs.SaveTempData(new TempModel { PageInfo = "ApiModelValue", Tags = ApiModelValue });
+            await tbm.ShowMsg("保存完成", "消息");
+        }
+        catch (Exception ex)
+        {
+            var innermsg = ex.GetInnerExceptionMessage();
+            await tbm.ShowMsg(ex.Message + "\r\n" + innermsg, "异常");
+        }
+    }
+    #endregion
+    #region 初始化
+    //初始化
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        //首次加载
+        if (firstRender)
+        {
+            await jsRuntime.InvokeVoidAsync("loadscript", "/js/Settings.js");//指引调用哪个 js 文件 第一个参数固定
+            var t = fs.ReadTempData("ApiServerValue").Result;
+            if (t.Tags != null) ApiServerValue = (string)t.Tags;
+            var t1 = fs.ReadTempData("TokenText").Result;
+            if (t1.Tags != null) TokenText = (string)t1.Tags;
+            var t2 = fs.ReadTempData("ApiModelValue").Result;
+            if (t2.Tags != null) ApiModelValue = (string)t2.Tags;
+            StateHasChanged();
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+    #endregion
+}

@@ -1,0 +1,35 @@
+﻿@typeparam TItem
+
+<li>@NodeContent(Item)</li>
+
+@code {
+    //CTMenuUnit.razor
+    [Parameter] public TItem Item { get; set; } = default!;
+    [Parameter] public RenderFragment<TItem> NodeContent { get; set; } = default!;
+    [Parameter] public Func<TItem, IEnumerable<TItem>> ChildItemsSelector { get; set; } = default!;
+    private IEnumerable<TItem> ChildItems => ChildItemsSelector?.Invoke(Item);
+
+    //PS 这个默认赋值节点里面只有 <li> 如果想扩展 需要添加 <NodeContent> 在内部定义
+    // <ul class="menu bg-base-200 rounded-box w-56">
+    //     <li><a>Item 1</a></li>
+    //     <li>
+    //         <details open>
+    //             <summary>Parent</summary>
+    //             <ul>
+    //                 <li><a>Submenu 1</a></li>
+    //                 <li><a>Submenu 2</a></li>
+    //                 <li>
+    //                     <details open>
+    //                         <summary>Parent</summary>
+    //                         <ul>
+    //                             <li><a>Submenu 1</a></li>
+    //                             <li><a>Submenu 2</a></li>
+    //                         </ul>
+    //                     </details>
+    //                 </li>
+    //             </ul>
+    //         </details>
+    //     </li>
+    //     <li><a>Item 3</a></li>
+    // </ul>
+}

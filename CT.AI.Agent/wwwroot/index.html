@@ -1,0 +1,47 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link href="css/output.css" rel="stylesheet" />
+    <link href="libs/highlight/styles/default.css" rel="stylesheet" />
+    <link href="libs/highlight/styles/vs2015.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="app">
+        <div class="p-4">
+            <div class="text-center">
+                <span class="loading loading-infinity loading-xl"></span>
+                <div class="progress progress-sm">
+                    <div class="progress-bar progress-bar-indeterminate"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            <!--测试,最终使用版-->
+        </environment>
+        <environment include="Development">
+            <!--开发环境-->
+        </environment>
+        <a href="" class="reload">重新加载</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <!--脚本和CSS引用时要带上解决方案名和wwwroot路径-->
+    <!-- Libs JS -->
+    <!-- <script src="libs/jquery3.7.0/jquery-3.7.0.min.js" defer></script> -->
+    <!-- 其他脚本 -->
+    <script src="libs/highlight/highlight.min.js"></script>
+    <script src="libs/highlight/languages/csharp.min.js"></script>
+    <script src="libs/highlight/languages/css.min.js"></script>
+    <script src="libs/highlight/languages/javascript.min.js"></script>
+    <script src="libs/pikaday/js/pikaday.js"></script>
+    <!-- 页面临时脚本导入 -->
+    <script src="js/scriptloader.js"></script>
+    <!--Blazor 脚本 (blazor.server.js) 与服务器建立 SignalR 连接。 脚本由 ASP.NET Core 共享框架中的嵌入资源提供给客户端应用。 客户端应用负责根据需要保持和还原应用状态。-->
+    <!--<script src="_framework/blazor.server.js"></script>-->
+    <script src="_framework/blazor.webview.js"></script>
+</body>
+</html>

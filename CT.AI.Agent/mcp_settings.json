@@ -1,0 +1,19 @@
+﻿{
+  "mcpServers": {
+    "mssql-mcp-main": {
+      "autoApprove": [],
+      "disabled": false,
+      "timeout": 60,
+      "command": "python",
+      "args": "{localpath}wwwroot/node_modules/mssql-mcp-main/src/server.py",
+      "transportType": "stdio"
+    },
+    "quickchart-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@gongrzhe/quickchart-mcp-server"
+      ]
+    }
+  }
+}

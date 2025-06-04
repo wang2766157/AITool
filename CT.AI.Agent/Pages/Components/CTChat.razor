@@ -1,0 +1,34 @@
+﻿@using System;
+@using System.ComponentModel;
+@using System.Reflection;
+@using CT.AI.Agent.Pages.Code;
+@inherits CTBaseComponent
+
+<div class="chat @PlacementClass">
+    <div class="chat-header">@Header</div>
+    <div class="chat-bubble">@ChildContent</div>
+    <div class="chat-footer opacity-50">@Footer</div>
+</div>
+
+@code {
+    //CTChat.razor
+    [Parameter] public string PlacementClass { get; set; } = ChatPlacementEnum.ChatStart.GetDescription();
+    [Parameter] public RenderFragment Header { get; set; }
+    [Parameter] public RenderFragment Footer { get; set; }
+
+    // chat 组件  Container for one line of conversation and its data
+    // chat-image Part    Author image
+    // chat-header Part    Text above the chat bubble
+    // chat-footer Part    Text below the chat bubble
+    // chat-bubble Part    Chat bubble
+    // chat-start Placement   Aligns chat to start horizontally(required)
+    // chat-end Placement   Aligns chat to end horizontally(required)
+    // chat-bubble-neutral Color   neutral color for chat-bubble
+    // chat-bubble-primary Color   primary color for chat-bubble
+    // chat-bubble-secondary Color   secondary color for chat-bubble
+    // chat-bubble-accent Color   accent color for chat-bubble
+    // chat-bubble-info Color   info color for chat-bubble
+    // chat-bubble-success Color   success color for chat-bubble
+    // chat-bubble-warning Color   warning color for chat-bubble
+    // chat-bubble-error Color   error color for chat-bubble
+}

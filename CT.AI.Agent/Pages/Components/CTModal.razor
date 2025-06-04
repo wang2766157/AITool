@@ -1,0 +1,67 @@
+﻿@inherits CTBaseComponent
+
+<dialog @ref="_dialogElement" class="modal @AddClass" @onclose="HandleClose">
+    <div class="modal-box">
+        <form method="dialog">
+            <CTButton AddClass="btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</CTButton>
+        </form>
+        @ChildContent
+    </div>
+</dialog>
+
+@code {
+    //CTModal.razor
+    private ElementReference _dialogElement;
+    private DotNetObjectReference<CTModal> _objRef;
+    [Inject] private IJSRuntime jsRuntime { get; set; }
+    [Inject] private ModalService ModalService { get; set; }
+    [Parameter] public string Id { get; set; } = Guid.NewGuid().ToString();
+    [Parameter] public EventCallback OnOpened { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+    //封闭方法
+    protected override void OnInitialized()
+    {
+        ModalService.RegisterModal(this);
+        _objRef = DotNetObjectReference.Create(this);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await jsRuntime.InvokeVoidAsync("loadscript", "/js/components/CTModal.js");//指引调用哪个 js 文件 第一个参数固定
+        await base.OnAfterRenderAsync(firstRender);
+    }
+    private async Task HandleClose()
+    {
+        await OnClosed.InvokeAsync();
+    }
+    //开放方法
+    public async Task ShowAsync()
+    {
+        await jsRuntime.InvokeVoidAsync("showModalDialog", _dialogElement);
+        await OnOpened.InvokeAsync();
+    }
+    public async Task HideAsync()
+    {
+        await jsRuntime.InvokeVoidAsync("closeModalDialog", _dialogElement);
+        await OnClosed.InvokeAsync();
+    }
+    public void Dispose()
+    {
+        ModalService.UnregisterModal(Id);
+        _objRef?.Dispose();
+    }
+    //主要调用方法
+    public async Task ShowMsg(string content, string title)
+    {
+        var t = !string.IsNullOrEmpty(title) ? $"<h3 class=\"text-lg font-bold\">{title}</h3>" : "";
+        ChildContent = (b) =>
+        {
+            b.AddMarkupContent(0, $@"
+                {t}
+                <p class=""py-4"">{content}</p>
+            ");
+        };
+        StateHasChanged();
+        await ShowAsync();
+    }
+}

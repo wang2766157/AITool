@@ -1,0 +1,26 @@
+﻿@using CodeTool.BaseClass.CodeFactory;
+
+<CTModal @ref="_dialogElement">
+    <h3 class="text-lg font-bold">连接服务器</h3>
+    <div><CTInput Type="text" AddClass="input" Title="服务器" @bind-value="@sm.ServerName"></CTInput></div>
+    <div><CTInput Type="text" AddClass="input" Title="登录名" @bind-value="@sm.UserName"></CTInput></div>
+    <div><CTInput Type="password" AddClass="input" Title="密码" @bind-value="@sm.Pwd"></CTInput></div>
+    <div class="modal-action"><CTButton AddClass="btn-primary" onclick="@BtnOK">确定</CTButton></div>
+</CTModal>
+
+@code {
+    //ServerSelectModal.razor
+    private CTModal _dialogElement = new();
+    public ServerModel sm = new();
+    [Parameter] public EventCallback<ServerModel> ReBackServerModel { get; set; }
+    public async Task Show()
+    {
+        StateHasChanged();
+        await _dialogElement.ShowAsync();
+    }
+    public async Task BtnOK()
+    {
+        await ReBackServerModel.InvokeAsync(sm);
+        await _dialogElement.HideAsync();
+    }
+}

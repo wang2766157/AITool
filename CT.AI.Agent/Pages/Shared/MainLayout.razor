@@ -1,0 +1,18 @@
+﻿@inherits LayoutComponentBase
+
+<CascadingValue Value="this" Name="Theme">
+    <CTPage AddClass="min-h-screen h-screen flex flex-col overflow-hidden" id="RootLayout" data-theme="@currentTheme">
+        <MainHeader></MainHeader>
+        @Body
+        <MainFooter></MainFooter>
+    </CTPage>
+</CascadingValue>
+@code {
+    // 当前主题状态
+    public string currentTheme { get; set; } = "light";
+    public void UpdateTheme(string newTheme)
+    {
+        currentTheme = newTheme;// 替换为新对象
+        StateHasChanged();// 触发重新渲染
+    }
+}

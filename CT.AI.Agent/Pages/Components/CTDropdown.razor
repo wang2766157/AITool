@@ -1,0 +1,23 @@
+﻿
+<div class="dropdown dropdown-bottom">
+    <div tabindex="0" role="button" class="btn m-1">Click</div>
+    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+        @ChildContent
+    </ul>
+</div>
+
+@code {
+    [Parameter] public RenderFragment ChildContent { get; set; }
+
+    // dropdown 组件  Dropdown container
+    // dropdown-content Part    Content part
+    // dropdown-start Placement   Align horizontally to start of button[Default]
+    // dropdown-center Placement   Align horizontally to center of button
+    // dropdown-end Placement   Align horizontally to end of button
+    // dropdown-top Placement   Open from top
+    // dropdown-bottom Placement   Open from bottom[Default]
+    // dropdown-left Placement   Open from left
+    // dropdown-right Placement   Open from right
+    // dropdown-hover 装饰类 Opens on hover too
+    // dropdown-open 装饰类 Force open
+}

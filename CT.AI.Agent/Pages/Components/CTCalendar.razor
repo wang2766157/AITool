@@ -1,0 +1,64 @@
+﻿@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<CTFieldset Title="@Title" Footer="@Footer">
+    <input type="text" class="input pika-single" id="@inputId" @ref="@inputElement" @bind="@FormattedDate" />
+</CTFieldset>
+
+@code {
+    //CTCalendar.razor
+    private ElementReference inputElement;
+    private string inputId = $"date-picker-{Guid.NewGuid()}";
+    private DotNetObjectReference<CTCalendar>? dotNetHelper;
+    private IJSObjectReference? module;
+    private bool isJsReady;
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Footer { get; set; } = "";
+    [Parameter] public DateTime? Date { get; set; }
+    [Parameter] public EventCallback<DateTime?> DateChanged { get; set; }
+    private string FormattedDate
+    {
+        get => Date?.ToString("yyyy/MM/dd") ?? "";
+        set
+        {
+            if (DateTime.TryParse(value, out var parsedDate))
+            {
+                Date = parsedDate;
+                DateChanged.InvokeAsync(Date);
+            }
+            else
+            {
+                Date = null;
+                DateChanged.InvokeAsync(null);
+            }
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetHelper = DotNetObjectReference.Create(this);
+            module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/CTCalendar.js");
+            await module.InvokeVoidAsync("initializePikaday", inputId, dotNetHelper);
+            isJsReady = true;
+        }
+    }
+    [JSInvokable]
+    public async Task UpdateDate(string dateStr)
+    {
+        if (DateTime.TryParse(dateStr, out var date))
+        {
+            Date = date;
+            await DateChanged.InvokeAsync(Date);
+        }
+    }
+    public async void Dispose()
+    {
+        if (module != null)
+        {
+            await module.InvokeVoidAsync("destroyPikaday", inputId);
+            await module.DisposeAsync();
+        }
+        dotNetHelper?.Dispose();
+    }
+}

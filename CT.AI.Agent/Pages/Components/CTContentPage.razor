@@ -1,0 +1,22 @@
+﻿@inherits CTBaseComponent
+
+<div class="flex flex-auto flex-col">
+    <div class="w-full flex-auto duration-500 @Padding() @Background()">
+        <div class="h-full flex flex-col bg-base-100 @Shadow()">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    //CTContentPage.razor
+    [Parameter] public bool ShowBackground { get; set; } = true;
+    [Parameter] public bool ShowPadding { get; set; } = true;
+    [Parameter] public bool ShowShadow { get; set; } = true;
+    private string Background() => ShowBackground ? "bg-base-200" : "bg-base-100";//背景色
+    private string Padding() => ShowPadding ? "p-2" : "";//间距
+    private string Shadow() => ShowShadow ? "shadow-sm" : "";//阴影遮罩
+    //可能需要隐藏其他无用的属性
+    //p-2 去掉就没有边了
+    //第三层暂时移除 overflow-y-auto
+}
